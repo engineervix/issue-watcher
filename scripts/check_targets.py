@@ -27,7 +27,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
 
 
 def parse_target(url):
-    """Returns (owner, repo, kind, number), or None if url isn't a recognized target."""
+    """Returns (owner, repo, kind, number), or None if url isn't a recognised target."""
     match = TARGET_RE.match(url)
     if not match:
         return None
@@ -97,7 +97,7 @@ def check_row(session, webhook_url, row):
 
     parsed = parse_target(url)
     if parsed is None:
-        print(f"::warning::Skipping unrecognized target URL: {url}", file=sys.stderr)
+        print(f"::warning::Skipping unrecognised target URL: {url}", file=sys.stderr)
         return None
     owner, repo, kind, number = parsed
 
