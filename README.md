@@ -42,6 +42,6 @@ Anything that doesn't fetch cleanly — a 404, a blank `url`, a link that isn't 
 
 ## Development
 
-- `python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt` (or `uv venv && uv pip install -r requirements.txt`) to get `gspread`/`requests` locally.
-- `python -m unittest discover -s tests` runs the test suite (mocks Google Sheets, GitHub, and Slack — no network, no real credentials needed).
-- Run `lefthook install` once after cloning — it wires up a pre-commit hook that runs `ruff check` and the test suite against any changed `.py` file (config in `lefthook.yml`). Needs `ruff` on `PATH` (`uv tool install ruff`, or add it to your venv).
+- [`uv`](https://docs.astral.sh/uv/) manages everything — Python version, runtime deps, and dev tools. `uv sync` installs all of it into `.venv` (`pyproject.toml` for what's installed, `uv.lock` for exact pinned versions — commit both, never hand-edit the lock).
+- `uv run python -m unittest discover -s tests` runs the test suite (mocks Google Sheets, GitHub, and Slack — no network, no real credentials needed).
+- Run `lefthook install` once after cloning — it wires up a pre-commit hook that runs `uv run ruff check`, `uv run basedpyright` (config in `pyrightconfig.json`, scoped to `scripts/` only — mocks make `tests/` too noisy for it), and the test suite against any changed `.py` file under `scripts/`/`tests/` (config in `lefthook.yml`). No separate installs needed — `uv run` uses the synced environment automatically.

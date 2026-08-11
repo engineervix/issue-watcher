@@ -1,8 +1,17 @@
 pre-commit:
   commands:
     ruff:
-      glob: "*.py"
-      run: ruff check {staged_files}
+      glob:
+        - "scripts/*.py"
+        - "tests/*.py"
+      run: uv run ruff check {staged_files}
+    basedpyright:
+      glob:
+        - "scripts/*.py"
+        - "tests/*.py"
+      run: uv run basedpyright
     tests:
-      glob: "*.py"
-      run: python -m unittest discover -s tests
+      glob:
+        - "scripts/*.py"
+        - "tests/*.py"
+      run: uv run python -m unittest discover -s tests
