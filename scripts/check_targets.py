@@ -95,7 +95,8 @@ def fetch_target(
             timeout=30,
         )
         resp.raise_for_status()
-        discussion = resp.json()["data"]["repository"]["discussion"]
+        # resp.json() is untyped; no schema-validation library in this repo.
+        discussion = resp.json()["data"]["repository"]["discussion"]  # pyright: ignore[reportAny]
         if discussion is None:
             return None
         return {
@@ -113,7 +114,8 @@ def fetch_target(
     if resp.status_code == 404:
         return None
     resp.raise_for_status()
-    body = resp.json()
+    # resp.json() is untyped; no schema-validation library in this repo.
+    body = resp.json()  # pyright: ignore[reportAny]
     return {
         "title": body["title"],
         "url": body["html_url"],
@@ -209,14 +211,15 @@ def main() -> None:
     session.headers["Authorization"] = f"Bearer {github_token}"
     session.headers["Accept"] = "application/vnd.github+json"
 
-    gc = gspread.service_account_from_dict(json.loads(google_service_account_json))
+    # json.loads() is untyped; no schema-validation library in this repo.
+    gc = gspread.service_account_from_dict(json.loads(google_service_account_json))  # pyright: ignore[reportAny]
     worksheet = gc.open_by_key(sheet_id).sheet1
 
     for i, row in enumerate(worksheet.get_all_records()):
         new_values = check_row(session, slack_webhook_url, row)
         if new_values is not None:
             sheet_row = i + 2  # header is row 1
-            worksheet.update([list(new_values)], f"B{sheet_row}:D{sheet_row}")
+            _ = worksheet.update([list(new_values)], f"B{sheet_row}:D{sheet_row}")
 
 
 if __name__ == "__main__":
