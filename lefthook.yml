@@ -1,0 +1,8 @@
+pre-commit:
+  commands:
+    ruff:
+      glob: "*.py"
+      run: ruff check {staged_files}
+    tests:
+      glob: "*.py"
+      run: python -m unittest discover -s tests
