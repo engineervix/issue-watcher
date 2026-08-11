@@ -52,5 +52,4 @@ pull requests.
 
 ## Licence
 
-No licence has been chosen yet. This is currently internal tooling for
-Torchbox's `wagtail-pdf-converter` project.
+BSD-3-Clause. See [LICENSE](LICENSE).
