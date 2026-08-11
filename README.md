@@ -1,5 +1,9 @@
 # issue-watcher
 
+![Python](https://img.shields.io/badge/python-%233670A0.svg?style=for-the-badge&logo=python&logoColor=ffdd54)
+![Google Sheets](https://img.shields.io/badge/Google%20Sheets-%2334A853.svg?style=for-the-badge&logo=googlesheets&logoColor=white)
+![Slack](https://img.shields.io/badge/Slack-4A154B.svg?style=for-the-badge&logo=slack&logoColor=white)
+
 Watches a list of GitHub issues, pull requests, and discussions. Posts to Slack when one changes. Does nothing on runs with no changes.
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
