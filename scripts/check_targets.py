@@ -1,16 +1,35 @@
 #!/usr/bin/env python3
+"""Checks every target row in the tracking sheet and notifies Slack on change."""
 import json
 import os
 import re
 import sys
+from collections.abc import Mapping
+from typing import Literal, TypedDict
 
 import gspread
 import requests
 
+Kind = Literal["issue", "pr", "discussion"]
+
+
+class TargetInfo(TypedDict):
+    """A target's fetched state, as returned by fetch_target."""
+
+    title: str
+    url: str
+    updated_at: str
+    comments: int
+
+
 TARGET_RE = re.compile(
     r"^https://github\.com/([^/]+)/([^/]+)/(issues|pull|discussions)/(\d+)/?$"
 )
-PATH_KIND_TO_KIND = {"issues": "issue", "pull": "pr", "discussions": "discussion"}
+PATH_KIND_TO_KIND: dict[str, Kind] = {
+    "issues": "issue",
+    "pull": "pr",
+    "discussions": "discussion",
+}
 
 DISCUSSION_QUERY = """
 query($owner: String!, $repo: String!, $number: Int!) {
@@ -26,8 +45,16 @@ query($owner: String!, $repo: String!, $number: Int!) {
 """
 
 
-def parse_target(url):
-    """Returns (owner, repo, kind, number), or None if url isn't a recognised target."""
+def parse_target(url: str) -> tuple[str, str, Kind, str] | None:
+    """Parses a GitHub URL into the parts needed to fetch it.
+
+    Args:
+        url: A full GitHub URL, e.g. "https://github.com/owner/repo/issues/1".
+
+    Returns:
+        The parsed (owner, repo, kind, number), or None if url isn't a
+        recognised issue, PR, or discussion link.
+    """
     match = TARGET_RE.match(url)
     if not match:
         return None
@@ -35,8 +62,29 @@ def parse_target(url):
     return owner, repo, PATH_KIND_TO_KIND[path_kind], number
 
 
-def fetch_target(session, owner, repo, kind, number):
-    """Returns {title, url, updated_at, comments}, or None if not found."""
+def fetch_target(
+    session: requests.Session, owner: str, repo: str, kind: Kind, number: str
+) -> TargetInfo | None:
+    """Fetches a target's current state from the GitHub API.
+
+    Uses the REST API for issues and PRs, and GraphQL for discussions,
+    which have no REST endpoint.
+
+    Args:
+        session: An authenticated requests.Session for api.github.com.
+        owner: Repository owner.
+        repo: Repository name.
+        kind: Which endpoint (or query, for a discussion) to use.
+        number: The issue/PR/discussion number.
+
+    Returns:
+        The target's current state, or None if it doesn't exist (deleted,
+        moved, or a 404).
+
+    Raises:
+        requests.HTTPError: If the request fails for any reason other than
+            a 404, e.g. rate limiting or a bad token.
+    """
     if kind == "discussion":
         resp = session.post(
             "https://api.github.com/graphql",
@@ -74,7 +122,17 @@ def fetch_target(session, owner, repo, kind, number):
     }
 
 
-def notify_slack(webhook_url, kind, current):
+def notify_slack(webhook_url: str, kind: Kind, current: TargetInfo) -> None:
+    """Posts a "this target changed" message to a Slack incoming webhook.
+
+    Args:
+        webhook_url: The Slack incoming webhook URL.
+        kind: Used to label the message, e.g. "(PR)" vs "(issue)".
+        current: The target's current state, as returned by fetch_target.
+
+    Raises:
+        requests.HTTPError: If the webhook POST fails.
+    """
     kind_label = "PR" if kind == "pr" else kind
     text = (
         f"*{current['title']}* ({kind_label}) was updated\n"
@@ -85,11 +143,24 @@ def notify_slack(webhook_url, kind, current):
     resp.raise_for_status()
 
 
-def check_row(session, webhook_url, row):
+def check_row(
+    session: requests.Session,
+    webhook_url: str,
+    row: Mapping[str, int | float | str],
+) -> tuple[str, str, int] | None:
     """Fetches one target and notifies Slack if it changed.
 
-    Returns the (title, updated_at, comments) tuple to write back to the
-    sheet, or None if the row was skipped or nothing changed.
+    Skips (without raising) a blank or unrecognised url, a target that
+    fails to fetch, or one whose fetched state matches the row already.
+
+    Args:
+        session: An authenticated requests.Session for api.github.com.
+        webhook_url: The Slack incoming webhook URL to notify on change.
+        row: One sheet row; only the "url" and "updated_at" keys are read.
+
+    Returns:
+        The (title, updated_at, comments) tuple to write back to the
+        sheet, or None if the row was skipped or nothing changed.
     """
     url = str(row.get("url", "")).strip()
     if not url:
@@ -120,7 +191,15 @@ def check_row(session, webhook_url, row):
     return current["title"], current["updated_at"], current["comments"]
 
 
-def main():
+def main() -> None:
+    """Entry point: checks every target in the sheet and updates it in place.
+
+    Reads GITHUB_TOKEN, SLACK_WEBHOOK_URL, SHEET_ID, and
+    GOOGLE_SERVICE_ACCOUNT_JSON from the environment.
+
+    Raises:
+        KeyError: If a required environment variable isn't set.
+    """
     github_token = os.environ["GITHUB_TOKEN"]
     slack_webhook_url = os.environ["SLACK_WEBHOOK_URL"]
     sheet_id = os.environ["SHEET_ID"]
@@ -137,7 +216,7 @@ def main():
         new_values = check_row(session, slack_webhook_url, row)
         if new_values is not None:
             sheet_row = i + 2  # header is row 1
-            worksheet.update(f"B{sheet_row}:D{sheet_row}", [list(new_values)])
+            worksheet.update([list(new_values)], f"B{sheet_row}:D{sheet_row}")
 
 
 if __name__ == "__main__":

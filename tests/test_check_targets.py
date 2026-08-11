@@ -2,6 +2,7 @@ import json
 import sys
 import unittest
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 import requests
@@ -11,14 +12,14 @@ import check_targets
 
 
 class FakeResponse:
-    def __init__(self, payload, status_code=200):
+    def __init__(self, payload: Any, status_code: int = 200) -> None:
         self._payload = payload
         self.status_code = status_code
 
-    def json(self):
+    def json(self) -> Any:
         return self._payload
 
-    def raise_for_status(self):
+    def raise_for_status(self) -> None:
         if self.status_code >= 400:
             raise requests.HTTPError(f"HTTP {self.status_code}")
 
@@ -243,17 +244,19 @@ class TestCheckRow(unittest.TestCase):
 
 
 class TestMain(unittest.TestCase):
-    def _fake_session(self):
+    def _fake_session(self) -> mock.MagicMock:
         session = mock.MagicMock()
 
-        def fake_get(url, timeout=30):
+        def fake_get(url: str, timeout: int = 30) -> FakeResponse:
             if url == "https://api.github.com/repos/o/r/issues/1":
                 return FakeResponse(ISSUE_BODY)
             if url == "https://api.github.com/repos/o/r/pulls/123":
                 return FakeResponse(PR_BODY)
             return FakeResponse({}, status_code=404)
 
-        def fake_post(url, json=None, timeout=30):
+        def fake_post(
+            url: str, json: dict[str, Any] | None = None, timeout: int = 30
+        ) -> FakeResponse:
             assert url == "https://api.github.com/graphql"
             return FakeResponse(DISCUSSION_RESPONSE)
 
@@ -261,7 +264,7 @@ class TestMain(unittest.TestCase):
         session.post.side_effect = fake_post
         return session
 
-    def _run_main(self, rows):
+    def _run_main(self, rows: list[dict[str, Any]]) -> tuple[mock.Mock, mock.Mock]:
         worksheet = mock.Mock()
         worksheet.get_all_records.return_value = rows
         gc = mock.Mock()
@@ -294,10 +297,10 @@ class TestMain(unittest.TestCase):
         self.assertEqual(mock_slack.call_count, 3)
         self.assertEqual(worksheet.update.call_count, 3)
         worksheet.update.assert_any_call(
-            "B2:D2", [["Fake issue", "2026-08-01T00:00:00Z", 1]]
+            [["Fake issue", "2026-08-01T00:00:00Z", 1]], "B2:D2"
         )
         worksheet.update.assert_any_call(
-            "B4:D4", [["Fake discussion", "2026-08-01T00:00:00Z", 2]]
+            [["Fake discussion", "2026-08-01T00:00:00Z", 2]], "B4:D4"
         )
 
     def test_unchanged_targets_are_silent(self):
