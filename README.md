@@ -36,10 +36,9 @@ To add or remove a target later, just add/delete a row in the sheet — no code 
 
 ## How it works
 
-- `scripts/check_targets.py` reads every row of the sheet, fetches each target (REST for issues/PRs, GraphQL for discussions), and compares the fetched `updated_at` against the sheet's `updated_at` column.
-- Changed targets get a Slack message, and the sheet row is updated with the new title/`updated_at`/comment count. Unchanged targets are left untouched — no Slack message, no sheet write.
-- A target that fails to fetch (404, deleted, moved) is logged as a warning and skipped for that run — its row is left as-is, so it won't falsely "change" once it's reachable again.
-- A blank `url` cell or one that isn't a recognized GitHub issue/PR/discussion link is skipped with a warning, not a crash.
+`scripts/check_targets.py` reads every row of the sheet, fetches each target (REST for issues/PRs, GraphQL for discussions), and compares what comes back against the sheet's `updated_at` column. Something changed? It posts to Slack and updates the row with the new title, `updated_at`, and comment count. Nothing changed? The row is left alone — no message, no write.
+
+Anything that doesn't fetch cleanly — a 404, a blank `url`, a link that isn't a GitHub issue/PR/discussion — gets a warning and a skip rather than a crash, and its row is left exactly as it was. That last part matters: it's what stops a target coming back online from looking like it "changed" the moment it's reachable again.
 
 ## Development
 
